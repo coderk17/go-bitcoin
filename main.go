@@ -9,8 +9,8 @@ import (
 	"log"
 	"os"
 	"strconv"
-	"strings"
 	"time"
+	"math/big"
 )
 
 // Block 表示区块链中的一个区块
@@ -21,6 +21,7 @@ type Block struct {
 	PrevHash  string
 	Hash      string
 	Nonce     int
+	Difficulty int
 }
 
 // Blockchain 是一个区块的切片，代表整个区块链
@@ -28,7 +29,7 @@ type Blockchain []Block
 
 // 计算区块的哈希值
 func calculateHash(block Block) string {
-	record := strconv.Itoa(block.Index) + block.Timestamp + block.Data + block.PrevHash + strconv.Itoa(block.Nonce)
+	record := strconv.Itoa(block.Index) + block.Timestamp + block.Data + block.PrevHash + strconv.Itoa(block.Nonce) + strconv.Itoa(block.Difficulty)
 	h := sha256.New()
 	h.Write([]byte(record))
 	hashed := h.Sum(nil)
@@ -40,19 +41,26 @@ func generateBlock(oldBlock Block, data string) Block {
 	var newBlock Block
 
 	newBlock.Index = oldBlock.Index + 1
-	newBlock.Timestamp = time.Now().String()
+	newBlock.Timestamp = time.Now().Format(time.RFC3339)
 	newBlock.Data = data
 	newBlock.PrevHash = oldBlock.Hash
+	newBlock.Difficulty = adjustDifficulty(oldBlock, newBlock)
 	newBlock.Nonce = 0
 
-	// 简化的工作量证明
-	for i := 0; ; i++ {
-		newBlock.Nonce = i
+	target := calculateTarget(newBlock.Difficulty)
+
+	startTime := time.Now()
+	for {
 		newBlock.Hash = calculateHash(newBlock)
-		if strings.HasPrefix(newBlock.Hash, "00") {
+		hashInt, _ := new(big.Int).SetString(newBlock.Hash, 16)
+		if hashInt.Cmp(target) == -1 {
 			break
 		}
+		newBlock.Nonce++
 	}
+	endTime := time.Now()
+
+	fmt.Printf("挖矿耗时: %v\n", endTime.Sub(startTime))
 
 	return newBlock
 }
@@ -66,6 +74,11 @@ func isBlockValid(newBlock, oldBlock Block) bool {
 		return false
 	}
 	if calculateHash(newBlock) != newBlock.Hash {
+		return false
+	}
+	target := calculateTarget(newBlock.Difficulty)
+	hashInt, _ := new(big.Int).SetString(newBlock.Hash, 16)
+	if hashInt.Cmp(target) != -1 {
 		return false
 	}
 	return true
@@ -102,6 +115,34 @@ func loadBlockchain() (Blockchain, error) {
 	return blockchain, nil
 }
 
+// 添加新的函数来计算目标哈希
+func calculateTarget(bits int) *big.Int {
+	target := big.NewInt(1)
+	target.Lsh(target, uint(256-bits))
+	return target
+}
+
+// 添加新的函数来调整难度
+func adjustDifficulty(oldBlock, newBlock Block) int {
+	if oldBlock.Index == 0 {
+		return oldBlock.Difficulty // 对于创世区块，保持初始难度
+	}
+
+	expectedTime := targetBlockTime
+	actualTime, _ := time.Parse(time.RFC3339, newBlock.Timestamp)
+	oldTime, _ := time.Parse(time.RFC3339, oldBlock.Timestamp)
+	timeDiff := actualTime.Sub(oldTime)
+
+	if timeDiff < expectedTime/2 {
+		return oldBlock.Difficulty + 1
+	} else if timeDiff > expectedTime*2 {
+		return oldBlock.Difficulty - 1
+	}
+	return oldBlock.Difficulty
+}
+
+const targetBlockTime = 3 * time.Second // 目标出块时间为3秒
+
 func main() {
 	// 尝试加载现有的区块链
 	blockchain, err := loadBlockchain()
@@ -111,29 +152,25 @@ func main() {
 
 	if len(blockchain) == 0 {
 		// 如果区块链为空，创建创世区块
-		genesisBlock := Block{0, time.Now().String(), "创世区块", "", "", 0}
+		initialDifficulty := 20 // 设置初始难度，可以根据需要调整
+		genesisBlock := Block{0, time.Now().Format(time.RFC3339), "创世区块", "", "", 0, initialDifficulty}
 		genesisBlock.Hash = calculateHash(genesisBlock)
 		blockchain = append(blockchain, genesisBlock)
 	}
 
 	// 添加新区块
-	blockchain = append(blockchain, generateBlock(blockchain[len(blockchain)-1], "第二个区块"))
-	blockchain = append(blockchain, generateBlock(blockchain[len(blockchain)-1], "第三个区块"))
+	for i := 0; i < 20; i++ {
+		startTime := time.Now()
+		newBlock := generateBlock(blockchain[len(blockchain)-1], fmt.Sprintf("区块 #%d", len(blockchain)+1))
+		blockchain = append(blockchain, newBlock)
+		endTime := time.Now()
+		miningTime := endTime.Sub(startTime)
+		fmt.Printf("添加了新区块 #%d，难度：%d，挖矿时间：%v\n", newBlock.Index, newBlock.Difficulty, miningTime)
+	}
 
 	// 保存区块链到文件
 	err = saveBlockchain(blockchain)
 	if err != nil {
 		log.Fatal("保存区块链失败:", err)
-	}
-
-	// 打印区块链
-	for _, block := range blockchain {
-		fmt.Printf("索引: %d\n", block.Index)
-		fmt.Printf("时间戳: %s\n", block.Timestamp)
-		fmt.Printf("数据: %s\n", block.Data)
-		fmt.Printf("哈希: %s\n", block.Hash)
-		fmt.Printf("前一个哈希: %s\n", block.PrevHash)
-		fmt.Printf("随机数: %d\n", block.Nonce)
-		fmt.Println("------------------------")
 	}
 }

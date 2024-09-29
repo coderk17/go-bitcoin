@@ -1,6 +1,6 @@
 # 简化版比特币演示
 
-这是一个用 Go 语言实现的简化版比特币概念演示。它包括基本的区块链结构和简单的挖矿功能。
+这是一个用 Go 语言实现的简化版比特币概念演示。它包括基本的区块链结构、简单的挖矿功能和数据持久化存储。
 
 ## 前提条件
 
@@ -30,6 +30,12 @@
 - 实现简化的工作量证明机制
 - 生成新的区块并添加到区块链
 - 验证区块的有效性
+- 将区块链数据保存到文件系统
+- 从文件系统加载现有的区块链数据
+
+## 数据存储
+
+区块链数据以 JSON 格式存储在 `blockchain.json` 文件中。每次运行程序时，它会尝试从这个文件加载现有的区块链。如果文件不存在，程序会创建一个新的区块链。
 
 ## 注意
 
@@ -37,4 +43,4 @@
 
 ## 许可证
 
-本项目采用 [GNU General Public License, version 2](https://www.gnu.org/licenses/gpl-2.0.html)许可证。详情请参阅 [LICENSE](LICENSE) 文件.
+本项目采用 [GNU General Public License, version 2](https://www.gnu.org/licenses/gpl-2.0.html) 许可证。详情请参阅 [LICENSE](LICENSE) 文件.
