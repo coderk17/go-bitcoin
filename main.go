@@ -5,22 +5,21 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
+	"math/big"
 	"os"
 	"strconv"
 	"time"
-	"math/big"
 )
 
 // Block 表示区块链中的一个区块
 type Block struct {
-	Index     int
-	Timestamp string
-	Data      string
-	PrevHash  string
-	Hash      string
-	Nonce     int
+	Index      int
+	Timestamp  string
+	Data       string
+	PrevHash   string
+	Hash       string
+	Nonce      int
 	Difficulty int
 }
 
@@ -90,7 +89,7 @@ func saveBlockchain(blockchain Blockchain) error {
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile("blockchain.json", data, 0644)
+	return os.WriteFile("blockchain.json", data, 0644)
 }
 
 // 从文件加载区块链
@@ -102,7 +101,8 @@ func loadBlockchain() (Blockchain, error) {
 		return blockchain, nil
 	}
 
-	data, err := ioutil.ReadFile("blockchain.json")
+	data, err := os.ReadFile("blockchain.json")
+
 	if err != nil {
 		return nil, err
 	}
